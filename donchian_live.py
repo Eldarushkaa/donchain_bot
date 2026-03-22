@@ -309,9 +309,12 @@ class DonchianBot:
                 ema200=self._ema_slow,
                 high_n=high_n,
                 low_n=low_n,
+                exit_high_m=exit_high,
+                exit_low_m=exit_low,
                 vol_ratio=vol_ratio,
                 position=self._position.side,
                 n=n,
+                m=m,
             )
 
         # --- 9. Append current candle to history AFTER all logic ---

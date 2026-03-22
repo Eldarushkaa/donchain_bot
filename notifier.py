@@ -239,12 +239,15 @@ class TelegramNotifier:
 
     async def notify_no_signal(
         self, symbol: str, close: float, ema200: float,
-        high_n: float, low_n: float, vol_ratio: float, position: str, n: int,
+        high_n: float, low_n: float,
+        exit_high_m: float, exit_low_m: float,
+        vol_ratio: float, position: str, n: int, m: int,
     ) -> None:
         text = (
             f"📊 <b>Нет сигнала — {symbol}</b>\n"
             f"close = ${close:,.2f} | EMA200 = ${ema200:,.2f}\n"
-            f"high_{n} = ${high_n:,.2f} | low_{n} = ${low_n:,.2f}\n"
+            f"Вход N={n}: high = ${high_n:,.2f} | low = ${low_n:,.2f}\n"
+            f"Выход M={m}: high = ${exit_high_m:,.2f} | low = ${exit_low_m:,.2f}\n"
             f"vol_ratio = {vol_ratio:.2f} | позиция: {position}\n"
             f"{self._ts()}"
         )
