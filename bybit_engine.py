@@ -49,18 +49,51 @@ class BybitEngine:
     # ──────────────────────────────────────────────────────────
 
     def set_leverage_sync(self, symbol: str, leverage: int) -> None:
+        """
+        Set leverage for symbol. First checks current leverage from position info
+        to avoid unnecessary API call and 110043 "leverage not modified" error.
+        """
+        # Step 1: check current leverage from position info
+        try:
+            pos = self.get_position_sync(symbol)
+            # get_positions response includes leverage in the raw response,
+            # but PositionState doesn't store it — so we read it directly
+            def _get_current_leverage():
+                resp = self._session.get_positions(category="linear", symbol=symbol)
+                if resp["retCode"] != 0:
+                    raise RuntimeError(f"get_positions failed: {resp}")
+                return resp
+
+            resp = retry_sync(_get_current_leverage, "check_leverage", self._notifier)
+            items = resp["result"]["list"]
+            if items:
+                current_lev = float(items[0].get("leverage", 0) or 0)
+                if current_lev == float(leverage):
+                    logger.info(f"Leverage already {leverage}x for {symbol} — skipping")
+                    return
+        except Exception as exc:
+            logger.warning(f"Could not check current leverage: {exc} — will attempt to set")
+
+        # Step 2: set leverage (only if different or check failed)
         lev = str(leverage)
 
         def _do():
-            resp = self._session.set_leverage(
-                category="linear",
-                symbol=symbol,
-                buyLeverage=lev,
-                sellLeverage=lev,
-            )
-            # retCode 110043 = "leverage not modified" — not an error
-            if resp["retCode"] not in (0, 110043):
-                raise RuntimeError(f"set_leverage failed: {resp}")
+            try:
+                resp = self._session.set_leverage(
+                    category="linear",
+                    symbol=symbol,
+                    buyLeverage=lev,
+                    sellLeverage=lev,
+                )
+                if resp["retCode"] not in (0, 110043):
+                    raise RuntimeError(f"set_leverage failed: {resp}")
+            except Exception as exc:
+                # pybit raises exception for 110043 — catch and check error code
+                err_str = str(exc)
+                if "110043" in err_str or "leverage not modified" in err_str.lower():
+                    logger.info(f"Leverage already {leverage}x for {symbol}")
+                    return
+                raise
             logger.info(f"Leverage set to {leverage}x for {symbol}")
 
         retry_sync(_do, "set_leverage", self._notifier)
